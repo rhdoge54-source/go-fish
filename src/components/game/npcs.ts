@@ -117,7 +117,7 @@ export const NPCS: NpcDef[] = [
     name: "Captain Vex",
     role: "Boat Dealer",
     place: "Boat shop, east pier",
-    pos: [27.4, 20.2],
+    pos: [19.63, 20.89],
     talkDist: 6,
     face: "wink",
     trades: false,
