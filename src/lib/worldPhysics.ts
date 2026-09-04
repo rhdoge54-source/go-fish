@@ -195,3 +195,15 @@ export function pushOutOfSolids(x: number, z: number, radius = 0.9): [number, nu
   }
   return [px, pz];
 }
+
+// Dev aid: inspect the live solid boxes from the console.
+if (typeof window !== "undefined") {
+  (window as unknown as { __solids?: () => unknown[] }).__solids = () =>
+    [...colliders.values()]
+      .filter((c) => c.solid)
+      .map((c) => ({
+        id: c.id,
+        min: [+c.box.min.x.toFixed(1), +c.box.min.y.toFixed(1), +c.box.min.z.toFixed(1)],
+        max: [+c.box.max.x.toFixed(1), +c.box.max.y.toFixed(1), +c.box.max.z.toFixed(1)],
+      }));
+}
