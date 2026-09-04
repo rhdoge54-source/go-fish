@@ -102,9 +102,9 @@ function HotSlot({
 }: {
   index: number;
   label: string;
-  active?: boolean;
-  disabled?: boolean;
-  badge?: number;
+  active?: boolean | undefined;
+  disabled?: boolean | undefined;
+  badge?: number | undefined;
   onClick: () => void;
   children: React.ReactNode;
 }) {
