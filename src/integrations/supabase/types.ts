@@ -151,6 +151,7 @@ export type Database = {
           updated_at: string
           username: string
           wallet_address: string
+          xp: number
         }
         Insert: {
           avatar_url?: string | null
@@ -166,6 +167,7 @@ export type Database = {
           updated_at?: string
           username: string
           wallet_address: string
+          xp?: number
         }
         Update: {
           avatar_url?: string | null
@@ -181,6 +183,7 @@ export type Database = {
           updated_at?: string
           username?: string
           wallet_address?: string
+          xp?: number
         }
         Relationships: []
       }
@@ -258,6 +261,38 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      level_for_xp: { Args: { _xp: number }; Returns: number }
+      record_catch: {
+        Args: {
+          _mutation_key: string
+          _rarity: string
+          _species_id: string
+          _wallet: string
+          _weight_kg: number
+        }
+        Returns: {
+          avatar_url: string | null
+          coins: number
+          created_at: string
+          display_name: string
+          fish_common: number
+          fish_epic: number
+          fish_legendary: number
+          fish_mythic: number
+          fish_rare: number
+          level: number
+          updated_at: string
+          username: string
+          wallet_address: string
+          xp: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       sell_fish: {
         Args: {
           _item_id: string
@@ -279,6 +314,7 @@ export type Database = {
           updated_at: string
           username: string
           wallet_address: string
+          xp: number
         }
         SetofOptions: {
           from: "*"
@@ -287,6 +323,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      xp_for_rarity: { Args: { _rarity: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never

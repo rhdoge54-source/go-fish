@@ -8,6 +8,13 @@
       "when": 1788537083327,
       "tag": "0000_gofish_base_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788537139753,
+      "tag": "0001_seed_gameplay_and_xp",
+      "breakpoints": true
     }
   ]
 }
