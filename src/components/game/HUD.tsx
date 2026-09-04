@@ -98,19 +98,16 @@ export function HUD() {
         </div>
       </div>
 
-      <div className="absolute inset-x-0 bottom-6 flex flex-col items-center gap-3 px-4">
+      {/* Top-center notifications */}
+      <div className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 flex-col items-center gap-2 px-4">
         {bite && (
           <div className="animate-pulse rounded-full bg-red-500/90 px-6 py-2 text-lg font-bold tracking-wide text-white shadow-xl">
             ! BITE !
           </div>
         )}
-        <div className="rounded-full border border-white/25 bg-slate-900/50 px-5 py-2 text-center text-sm text-slate-50 shadow-lg backdrop-blur-md">
+        <div className="rounded-full border border-white/25 bg-slate-900/50 px-6 py-2 text-center text-sm font-medium text-slate-50 shadow-lg backdrop-blur-md">
           {message}
         </div>
-        <p className="text-[11px] text-slate-900/60">
-          WASD = move · SPACE = jump · ENTER / left click = cast &amp; reel · E = board/leave boat · R = stow/draw rod · right click = rotate
-          camera · scroll = zoom
-        </p>
       </div>
 
       {/* Bottom-left status: weather + time of day */}
