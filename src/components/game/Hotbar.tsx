@@ -1,6 +1,7 @@
 import { useEffect } from "react";
-import { Backpack, Fish as FishIcon } from "lucide-react";
+import { Backpack, Fish as FishIcon, Coins } from "lucide-react";
 import { useGameStore } from "@/hooks/useGameStore";
+import { priceFor } from "@/lib/fishRules";
 
 /**
  * Roblox-style bottom-center hotbar.
@@ -36,33 +37,67 @@ export function Hotbar() {
   }, []);
 
   const totalKg = bag.reduce((a, b) => a + b.weight, 0);
+  const totalValue = bag.reduce(
+    (a, b) => a + priceFor(b.speciesId, b.weight, b.mutationKey),
+    0,
+  );
 
   return (
     <>
       {bagOpen && (
-        <div className="pointer-events-auto absolute bottom-32 left-1/2 z-30 w-[min(92vw,420px)] -translate-x-1/2 rounded-2xl border border-white/25 bg-slate-900/80 p-3 text-slate-50 shadow-2xl backdrop-blur-md">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-bold tracking-tight">Bag</p>
-            <p className="text-xs text-slate-300">
-              {bag.length} item · {totalKg.toFixed(2)} kg
+        <div className="pointer-events-auto absolute bottom-32 left-1/2 z-30 w-[min(92vw,440px)] -translate-x-1/2 rounded-2xl border border-white/25 bg-slate-900/85 p-4 text-slate-50 shadow-2xl backdrop-blur-md">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-base font-bold tracking-tight">Bag</p>
+            <p className="flex items-center gap-2 text-xs text-slate-300">
+              <span>{bag.length} item · {totalKg.toFixed(2)} kg</span>
+              <span className="flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-amber-200">
+                <Coins size={12} />
+                {totalValue.toLocaleString()}
+              </span>
             </p>
           </div>
-          <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+
+          <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
             {bag.length === 0 && (
               <p className="py-6 text-center text-xs text-slate-400">
                 Bag is empty. Catch some fish!
               </p>
             )}
-            {bag.map((item) => (
-              <div
-                key={item.uid}
-                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
-              >
-                <FishIcon size={16} className="shrink-0 text-sky-300" />
-                <span className="flex-1 truncate text-sm font-medium">{item.name}</span>
-                <span className="text-xs tabular-nums text-slate-300">{item.weight} kg</span>
-              </div>
-            ))}
+            {bag.map((item) => {
+              const value = priceFor(item.speciesId, item.weight, item.mutationKey);
+              return (
+                <div
+                  key={item.uid}
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5"
+                >
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-slate-950/40"
+                    style={{ color: item.color }}
+                  >
+                    <FishThumbnail color={item.color} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold leading-tight">
+                      {item.mutationKey !== "none" ? (
+                        <>
+                          <span className="text-slate-300">{item.mutationLabel}</span>{" "}
+                          {item.name}
+                        </>
+                      ) : (
+                        item.name
+                      )}
+                    </p>
+                    <p className="text-[11px] text-slate-400">{item.weight.toFixed(2)} kg</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="flex items-center gap-1 text-sm font-bold text-amber-200">
+                      <Coins size={13} />
+                      {value.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -128,5 +163,29 @@ function HotSlot({
       <span className="flex h-8 items-center justify-center">{children}</span>
       <span className="text-[11px] font-bold text-slate-100">{label}</span>
     </button>
+  );
+}
+
+/** Simple stylised fish icon tinted to the species colour. */
+function FishThumbnail({ color }: { color: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-7 w-7 animate-fish-swim"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path
+        d="M2 12c2.5-3 6.5-4 10-4s7.5 1 10 4c-2.5 3-6.5 4-10 4S4.5 15 2 12z"
+        fill={color}
+        opacity="0.92"
+      />
+      <path d="M22 12c-2-1.5-4.5-2.5-7-3" />
+      <circle cx="6.5" cy="11" r="1" fill="#12161c" stroke="none" />
+      <path d="M2 12l-1-2v4l1-2z" fill={color} />
+    </svg>
   );
 }
