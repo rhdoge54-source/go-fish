@@ -95,13 +95,16 @@ export function registerCollider(
   solid: boolean,
 ) {
   obj.updateWorldMatrix(true, true);
+  const meshes = collectMeshes(obj, walkable);
+  const rootBox = new THREE.Box3().setFromObject(obj);
   colliders.set(id, {
     id,
     obj,
     walkable,
     solid,
-    box: new THREE.Box3().setFromObject(obj),
-    meshes: collectMeshes(obj, walkable),
+    box: rootBox,
+    meshes,
+    parts: buildParts(obj, meshes, rootBox),
   });
   invalidate();
 }
@@ -111,12 +114,13 @@ export function unregisterCollider(id: string) {
   invalidate();
 }
 
-/** Recompute the cached bounding box after a transform change. */
+/** Recompute the cached bounding boxes after a transform change. */
 export function refreshCollider(id: string) {
   const c = colliders.get(id);
   if (!c) return;
   c.obj.updateWorldMatrix(true, true);
   c.box.setFromObject(c.obj);
+  c.parts = buildParts(c.obj, c.meshes, c.box);
   invalidate();
 }
 
@@ -124,6 +128,7 @@ export function refreshAllColliders() {
   for (const c of colliders.values()) {
     c.obj.updateWorldMatrix(true, true);
     c.box.setFromObject(c.obj);
+    c.parts = buildParts(c.obj, c.meshes, c.box);
   }
   invalidate();
 }
@@ -193,27 +198,38 @@ export function isOverLand(x: number, z: number, minY = -0.2): boolean {
 
 /**
  * Push (x, z) out of every solid object's XZ bounding box, along the axis with
- * the smallest penetration. Objects are only solid when the user marks them so.
+ * the smallest penetration. Uses per-mesh boxes so a shop's roof/awning does
+ * not block the open area in front of it.
  */
-export function pushOutOfSolids(x: number, z: number, radius = 0.9): [number, number] {
+export function pushOutOfSolids(
+  x: number,
+  z: number,
+  radius = 0.9,
+  playerY = 0,
+): [number, number] {
   let px = x;
   let pz = z;
   for (const c of colliders.values()) {
     if (!c.solid) continue;
-    const minX = c.box.min.x - radius;
-    const maxX = c.box.max.x + radius;
-    const minZ = c.box.min.z - radius;
-    const maxZ = c.box.max.z + radius;
-    if (px <= minX || px >= maxX || pz <= minZ || pz >= maxZ) continue;
-    const left = px - minX;
-    const right = maxX - px;
-    const back = pz - minZ;
-    const front = maxZ - pz;
-    const m = Math.min(left, right, back, front);
-    if (m === left) px = minX;
-    else if (m === right) px = maxX;
-    else if (m === back) pz = minZ;
-    else pz = maxZ;
+    for (const box of c.parts) {
+      // Skip parts above the player's head — awnings and roofs should not
+      // block the entrance below them.
+      if (playerY > 0 && box.min.y > playerY + 1.6) continue;
+      const minX = box.min.x - radius;
+      const maxX = box.max.x + radius;
+      const minZ = box.min.z - radius;
+      const maxZ = box.max.z + radius;
+      if (px <= minX || px >= maxX || pz <= minZ || pz >= maxZ) continue;
+      const left = px - minX;
+      const right = maxX - px;
+      const back = pz - minZ;
+      const front = maxZ - pz;
+      const m = Math.min(left, right, back, front);
+      if (m === left) px = minX;
+      else if (m === right) px = maxX;
+      else if (m === back) pz = minZ;
+      else pz = maxZ;
+    }
   }
   return [px, pz];
 }
