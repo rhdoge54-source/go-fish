@@ -963,11 +963,6 @@ export function Angler() {
 
           {/* anchor punggung: joran menyilang di belakang badan saat dilepas */}
           <group ref={backAnchor} position={[-0.62, 1.85, -0.66]} rotation={[-0.2, 0, -0.5]} />
-          {/* tali sandang joran */}
-          <mesh position={[0, 2.85, -0.52]} rotation={[0, 0, -0.5]} castShadow>
-            <boxGeometry args={[0.18, 2.4, 0.12]} />
-            <meshStandardMaterial color="#3a2a1c" roughness={0.95} />
-          </mesh>
           {/* head */}
           <group ref={head} position={[0, 4.25, 0]}>
             <mesh castShadow>
