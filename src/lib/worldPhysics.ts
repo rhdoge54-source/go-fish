@@ -157,9 +157,9 @@ function buildParts(
     if (b.isEmpty()) continue;
     parts.push(b);
   }
-
-  return parts.length ? parts : [root];
+  return { parts: parts.length ? parts : [root], grid: null };
 }
+
 
 
 
