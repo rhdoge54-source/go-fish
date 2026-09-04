@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { X, Coins, Fish as FishIcon, Loader2 } from "lucide-react";
-import { useMerchant } from "@/hooks/useMerchant";
+import { X, Coins, Fish as FishIcon, Loader2, Store } from "lucide-react";
+import { useNpc } from "@/hooks/useNpc";
+import { npcById } from "./npcs";
 import { useProfileStore } from "@/hooks/useProfileStore";
 import { getFishData, mutationFor, priceFor } from "@/lib/fishRules";
 import { getInventory, sellFish } from "@/lib/profile.functions";
@@ -13,20 +14,14 @@ interface InventoryItem {
   caught_at: string;
 }
 
-const SMALL_TALK = [
-  "The reef's been generous this week. Bring me anything with fins.",
-  "Storms scare the tourists off, but the big ones bite hardest then.",
-  "A sparkling catch fetches half again the coin. Keep your eyes open.",
-  "Heaviest fish I ever bought? A leviathan. Nearly sank my scales.",
-];
-
 function speciesName(id: string) {
   return getFishData().species.find((s) => s.id === id)?.name ?? id;
 }
 
-export function MerchantDialog() {
-  const open = useMerchant((s) => s.open);
-  const setOpen = useMerchant((s) => s.setOpen);
+export function NpcDialog() {
+  const openId = useNpc((s) => s.openId);
+  const setOpen = useNpc((s) => s.setOpen);
+  const npc = npcById(openId);
   const proof = useProfileStore((s) => s.proof);
   const profile = useProfileStore((s) => s.profile);
   const setProfile = useProfileStore((s) => s.setProfile);
@@ -36,10 +31,12 @@ export function MerchantDialog() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [talk, setTalk] = useState(SMALL_TALK[0]!);
+  const [talk, setTalk] = useState<string>("");
+
+  const trades = !!npc?.trades;
 
   const refresh = useCallback(async () => {
-    if (!proof) return;
+    if (!proof || !trades) return;
     setLoading(true);
     setError(null);
     try {
@@ -49,26 +46,25 @@ export function MerchantDialog() {
     } finally {
       setLoading(false);
     }
-  }, [proof]);
+  }, [proof, trades]);
 
   useEffect(() => {
-    if (!open) {
-      setStage("greeting");
-      return;
-    }
+    if (!openId) return;
+    setStage("greeting");
+    setError(null);
     void refresh();
-  }, [open, refresh]);
+  }, [openId, refresh]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!openId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === "Escape") setOpen(false);
+      if (e.code === "Escape") setOpen(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, setOpen]);
+  }, [openId, setOpen]);
 
-  if (!open) return null;
+  if (!npc) return null;
 
   const total = items.reduce(
     (a, i) => a + priceFor(i.species_id, i.weight_kg, i.mutation_key),
@@ -102,11 +98,17 @@ export function MerchantDialog() {
       <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/15 bg-slate-900/90 shadow-2xl">
         <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-400/20 text-amber-300">
-            <FishIcon className="h-5 w-5" aria-hidden />
+            {trades ? (
+              <FishIcon className="h-5 w-5" aria-hidden />
+            ) : (
+              <Store className="h-5 w-5" aria-hidden />
+            )}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-slate-50">Marlo, Fish Merchant</p>
-            <p className="truncate text-[11px] text-slate-400">Koleo Island dock stall</p>
+            <p className="text-sm font-semibold text-slate-50">
+              {npc.name}, {npc.role}
+            </p>
+            <p className="truncate text-[11px] text-slate-400">{npc.place}</p>
           </div>
           <span className="flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 text-xs font-semibold text-amber-300">
             <Coins className="h-3.5 w-3.5" aria-hidden />
@@ -114,7 +116,7 @@ export function MerchantDialog() {
           </span>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={() => setOpen(null)}
             className="rounded-md p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-100"
             aria-label="Close"
           >
@@ -123,17 +125,21 @@ export function MerchantDialog() {
         </div>
 
         <div className="max-h-[46vh] overflow-y-auto px-4 py-4">
-          {!proof ? (
+          {stage === "talk" ? (
+            <p className="text-sm leading-relaxed text-slate-200">"{talk}"</p>
+          ) : stage === "greeting" || !trades ? (
+            <div className="space-y-3">
+              <p className="text-sm leading-relaxed text-slate-200">"{npc.greeting}"</p>
+              {!trades && npc.comingSoon && (
+                <p className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-200">
+                  {npc.comingSoon}
+                </p>
+              )}
+            </div>
+          ) : !proof ? (
             <p className="text-sm text-slate-300">
               "Connect your wallet first, angler — I only trade with registered crews."
             </p>
-          ) : stage === "greeting" ? (
-            <p className="text-sm leading-relaxed text-slate-200">
-              "Welcome to my stall! I buy anything you pull out of these waters — the
-              heavier and the stranger, the better the coin."
-            </p>
-          ) : stage === "talk" ? (
-            <p className="text-sm leading-relaxed text-slate-200">"{talk}"</p>
           ) : loading ? (
             <p className="flex items-center gap-2 text-sm text-slate-400">
               <Loader2 className="h-4 w-4 animate-spin" /> Weighing your catch…
@@ -197,7 +203,7 @@ export function MerchantDialog() {
         </div>
 
         <div className="flex flex-wrap gap-2 border-t border-white/10 px-4 py-3">
-          {stage !== "sell" && (
+          {trades && stage !== "sell" && (
             <button
               type="button"
               disabled={!proof}
@@ -207,7 +213,7 @@ export function MerchantDialog() {
               Sell my fish
             </button>
           )}
-          {stage === "sell" && items.length > 0 && (
+          {trades && stage === "sell" && items.length > 0 && (
             <button
               type="button"
               disabled={busy}
@@ -220,7 +226,8 @@ export function MerchantDialog() {
           <button
             type="button"
             onClick={() => {
-              setTalk(SMALL_TALK[Math.floor(Math.random() * SMALL_TALK.length)]!);
+              const lines = npc.smallTalk;
+              setTalk(lines[Math.floor(Math.random() * lines.length)] ?? npc.greeting);
               setStage("talk");
             }}
             className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/10"
@@ -229,7 +236,7 @@ export function MerchantDialog() {
           </button>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={() => setOpen(null)}
             className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10"
           >
             Goodbye
