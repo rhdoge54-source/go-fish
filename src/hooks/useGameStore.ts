@@ -115,6 +115,10 @@ function syncCatchToProfile(f: FishCatch) {
 
 
 
+export interface BagItem extends FishCatch {
+  uid: string;
+}
+
 interface GameStore {
   phase: Phase;
   message: string;
@@ -123,10 +127,17 @@ interface GameStore {
   last: FishCatch | null;
   /** true = rod stowed on back */
   rodStowed: boolean;
+  /** caught fish carried in the bag */
+  bag: BagItem[];
+  bagOpen: boolean;
   setPhase: (p: Phase) => void;
   setMessage: (m: string) => void;
   setRodStowed: (v: boolean) => void;
   toggleRodStowed: () => void;
+  setBagOpen: (v: boolean) => void;
+  toggleBag: () => void;
+  removeFromBag: (uid: string) => void;
+  clearBag: () => void;
   landFish: (f: FishCatch) => void;
 }
 
@@ -137,17 +148,25 @@ export const useGameStore = create<GameStore>((set) => ({
   totalWeight: 0,
   last: null,
   rodStowed: false,
+  bag: [],
+  bagOpen: false,
   setPhase: (phase) => set({ phase }),
   setMessage: (message) => set({ message }),
   setRodStowed: (rodStowed) => set({ rodStowed }),
   toggleRodStowed: () => set((s) => ({ rodStowed: !s.rodStowed })),
+  setBagOpen: (bagOpen) => set({ bagOpen }),
+  toggleBag: () => set((s) => ({ bagOpen: !s.bagOpen })),
+  removeFromBag: (uid) => set((s) => ({ bag: s.bag.filter((b) => b.uid !== uid) })),
+  clearBag: () => set({ bag: [] }),
   landFish: (f) => {
     syncCatchToProfile(f);
     set((s) => ({
       score: s.score + 1,
       totalWeight: Number((s.totalWeight + f.weight).toFixed(2)),
       last: f,
+      bag: [...s.bag, { ...f, uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }],
     }));
   },
 }));
+
 
