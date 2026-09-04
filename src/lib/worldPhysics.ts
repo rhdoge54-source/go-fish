@@ -43,9 +43,11 @@ export interface Collider {
 const MAX_SOLID_PARTS = 400;
 /** Geometry-occupancy grid: cell size (m) and triangle budget. */
 const CELL = 0.7;
-const MAX_TRIS = 120_000;
+const MAX_TRIS = 900_000;
 /** Vertical gap that separates two solid spans in the same cell. */
 const SPAN_GAP = 0.6;
+
+const cellKey = (cx: number, cz: number) => `${cx}|${cz}`;
 
 /**
  * Build solid boxes from the actual triangles of a mesh instead of its bounding
@@ -54,9 +56,10 @@ const SPAN_GAP = 0.6;
  * slab and the player is stopped a metre away from the door. Here we bin the
  * triangles onto a coarse XZ grid and keep, per cell, the vertical spans that
  * actually contain geometry — so floors, roofs and empty porch space no longer
- * block, only walls and posts do.
+ * block, only walls and posts do. The result stays keyed by cell so a collision
+ * query only inspects the handful of cells around the player.
  */
-function gridParts(meshes: THREE.Mesh[]): THREE.Box3[] | null {
+function gridParts(meshes: THREE.Mesh[]): Map<string, THREE.Box3[]> | null {
   let tris = 0;
   for (const m of meshes) {
     const g = m.geometry as THREE.BufferGeometry;
@@ -69,11 +72,11 @@ function gridParts(meshes: THREE.Mesh[]): THREE.Box3[] | null {
   const v = new THREE.Vector3();
   for (const m of meshes) {
     const g = m.geometry as THREE.BufferGeometry;
-    const pos = g.getAttribute("position");
+    const pos = g.getAttribute("position") as THREE.BufferAttribute;
     const idx = g.index;
     const count = idx ? idx.count : pos.count;
     m.updateWorldMatrix(true, false);
-    for (let i = 0; i < count; i += 3) {
+    for (let i = 0; i + 2 < count; i += 3) {
       let minX = Infinity;
       let maxX = -Infinity;
       let minZ = Infinity;
@@ -82,7 +85,7 @@ function gridParts(meshes: THREE.Mesh[]): THREE.Box3[] | null {
       let maxY = -Infinity;
       for (let k = 0; k < 3; k++) {
         const vi = idx ? idx.getX(i + k) : i + k;
-        v.fromBufferAttribute(pos as THREE.BufferAttribute, vi).applyMatrix4(m.matrixWorld);
+        v.fromBufferAttribute(pos, vi).applyMatrix4(m.matrixWorld);
         if (v.x < minX) minX = v.x;
         if (v.x > maxX) maxX = v.x;
         if (v.z < minZ) minZ = v.z;
@@ -96,7 +99,7 @@ function gridParts(meshes: THREE.Mesh[]): THREE.Box3[] | null {
       const cz1 = Math.floor(maxZ / CELL);
       for (let cx = cx0; cx <= cx1; cx++) {
         for (let cz = cz0; cz <= cz1; cz++) {
-          const key = `${cx}|${cz}`;
+          const key = cellKey(cx, cz);
           let spans = cells.get(key);
           if (!spans) cells.set(key, (spans = []));
           spans.push([minY, maxY]);
@@ -104,16 +107,18 @@ function gridParts(meshes: THREE.Mesh[]): THREE.Box3[] | null {
       }
     }
   }
-  const parts: THREE.Box3[] = [];
+  if (cells.size === 0) return null;
+  const grid = new Map<string, THREE.Box3[]>();
   for (const [key, spans] of cells) {
     const [cxs, czs] = key.split("|");
     const cx = Number(cxs);
     const cz = Number(czs);
     spans.sort((a, b) => a[0] - b[0]);
+    const boxes: THREE.Box3[] = [];
     let lo = spans[0]![0];
     let hi = spans[0]![1];
     const push = () => {
-      parts.push(
+      boxes.push(
         new THREE.Box3(
           new THREE.Vector3(cx * CELL, lo, cz * CELL),
           new THREE.Vector3((cx + 1) * CELL, hi, (cz + 1) * CELL),
@@ -131,23 +136,28 @@ function gridParts(meshes: THREE.Mesh[]): THREE.Box3[] | null {
       }
     }
     push();
-    if (parts.length > 6000) return null;
+    grid.set(key, boxes);
   }
-  return parts.length ? parts : null;
+  return grid;
 }
 
-function buildParts(obj: THREE.Object3D, meshes: THREE.Mesh[], root: THREE.Box3): THREE.Box3[] {
-  if (meshes.length === 0) return [root];
+function buildParts(
+  obj: THREE.Object3D,
+  meshes: THREE.Mesh[],
+  root: THREE.Box3,
+): { parts: THREE.Box3[]; grid: Map<string, THREE.Box3[]> | null } {
+  if (meshes.length === 0) return { parts: [root], grid: null };
   obj.updateWorldMatrix(true, true);
   const grid = gridParts(meshes);
-  if (grid) return grid;
-  if (meshes.length > MAX_SOLID_PARTS) return [root];
+  if (grid) return { parts: [...grid.values()].flat(), grid };
+  if (meshes.length > MAX_SOLID_PARTS) return { parts: [root], grid: null };
   const parts: THREE.Box3[] = [];
   for (const m of meshes) {
     const b = new THREE.Box3().setFromObject(m);
     if (b.isEmpty()) continue;
     parts.push(b);
   }
+
   return parts.length ? parts : [root];
 }
 
