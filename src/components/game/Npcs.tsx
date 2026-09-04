@@ -51,8 +51,8 @@ function Npc({ def }: { def: NpcDef }) {
 
       <Html position={[0, 2.5, 0]} center distanceFactor={12} zIndexRange={[10, 0]}>
         <div
-          className="pointer-events-none whitespace-nowrap text-[18px] font-extrabold text-white"
-          style={{ textShadow: "0 2px 0 rgba(0,0,0,.55), 0 0 6px rgba(0,0,0,.45)" }}
+          className="pointer-events-none whitespace-nowrap text-[34px] font-extrabold text-white"
+          style={{ textShadow: "0 3px 0 rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.5)" }}
         >
           {def.name}
         </div>
@@ -60,11 +60,11 @@ function Npc({ def }: { def: NpcDef }) {
 
       {prompt && openId !== def.id && (
         <Html position={[0, 1.35, 0]} center distanceFactor={12} zIndexRange={[10, 0]}>
-          <div className="pointer-events-none flex items-center gap-2 whitespace-nowrap rounded-xl bg-white/95 px-2 py-1.5 shadow-lg">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-800 text-[13px] font-bold text-white">
+          <div className="pointer-events-none flex items-center gap-2 whitespace-nowrap rounded-full bg-white/25 px-3 py-1.5 ring-1 ring-white/40 backdrop-blur-sm">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-900/70 text-[13px] font-bold text-white">
               E
             </span>
-            <span className="pr-1 text-[15px] font-bold text-neutral-800">Talk</span>
+            <span className="pr-1 text-[15px] font-bold text-white drop-shadow-md">Talk</span>
           </div>
         </Html>
       )}
