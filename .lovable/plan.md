@@ -1,39 +1,43 @@
-# Sistem Berikutnya untuk Koleo Island
+# NPC Penjaga di Semua Toko
 
-Saat ini game sudah punya: dunia 3D + kapal, cuaca dinamis, memancing dengan ikan langka & mutasi, inventaris ikan, jual ikan ke pedagang, profil pemain (koin, XP, level) dengan login dompet, dan penyimpanan foto profil.
+Fokus tahap ini: hanya menambah karakter NPC bergaya Roblox di tiap toko. Sistem jual-beli dibangun setelahnya, satu per satu.
 
-Yang belum ada dan paling terasa hilang, diurutkan dari yang paling berdampak:
+## Yang akan dibuat
 
-## 1. Toko & Peningkatan Alat (prioritas tertinggi)
-Koin sekarang hanya menumpuk tanpa gunanya. Tambahkan:
-- Toko di pedagang untuk membeli joran (batas berat tangkapan lebih besar) dan umpan (peluang ikan langka naik).
-- Kepemilikan alat tersimpan di profil, joran/umpan aktif dipakai saat memancing.
-- Umpan habis pakai dengan jumlah stok.
+Empat NPC berdiri di depan tokonya masing-masing:
 
-## 2. Misi Harian & Pencapaian
-- 3 misi harian yang berganti tiap hari (mis. "tangkap 5 ikan langka", "jual 20 kg"), hadiah koin + XP.
-- Pencapaian permanen (ikan pertama, ikan mitos, level 10) dengan lencana di profil.
+| NPC | Toko | Posisi bangunan |
+| --- | --- | --- |
+| Pedagang Ikan (sudah ada, dirapikan) | FISHSHOP | 10.1, 3.8 |
+| Penjual Umpan | Bait Shop | -14.6, -3.4 |
+| Penjual Joran | Rod Shop | -42.9, -11.3 |
+| Penjual Kapal | Boat Shop | 30.6, 22.7 |
 
-## 3. Papan Peringkat
-- Peringkat global: total koin, level, dan tangkapan terberat.
-- Ditampilkan sebagai panel yang bisa dibuka dari HUD.
+Setiap NPC:
+- Tubuh kotak khas Roblox (R6) memakai gaya yang sama seperti pedagang ikan sekarang.
+- Wajah berbeda: pedagang ikan tersenyum lebar, penjual umpan mata menyipit ceria, penjual joran serius/berkumis, penjual kapal wajah nyengir dengan mata satu tertutup (bajak laut).
+- Pakaian berbeda: warna kulit, kaos, celana, celemek/rompi/jaket, dan penutup kepala (topi jerami, topi rajut, topi bertepi lebar, topi kapten) berbeda per NPC.
+- Berdiri di atas tanah dengan otomatis menyesuaikan tinggi permukaan, gerakan bernapas halus, dan menoleh ke pemain saat didekati.
+- Gelembung "Press E to talk" muncul saat pemain dekat.
 
-## 4. Buku Koleksi Ikan (Fishdex)
-- Daftar semua spesies; yang belum tertangkap tampil sebagai siluet.
-- Rekam berat terbaik & mutasi yang pernah didapat per spesies.
-- Bonus koin saat koleksi lengkap per tingkat kelangkaan.
+## Interaksi tahap ini
 
-## 5. Ikan Monster & Perlawanan Saat Memancing
-Aset monster sudah ada tapi belum jadi tantangan nyata. Tambahkan mini-game tarik-ulur: garis bisa putus jika joran terlalu lemah, hadiah jauh lebih besar.
+Tekan E membuka panel percakapan sederhana milik NPC tersebut: sapaan khas dan beberapa baris obrolan, plus catatan "Toko segera dibuka". Pedagang ikan tetap bisa menjual ikan seperti sekarang.
 
-## 6. Ekonomi & Keseimbangan
-- Harga pasar berfluktuasi harian per spesies.
-- Kapasitas inventaris terbatas, ditingkatkan lewat toko.
+Panel dibuat satu komponen yang bisa dipakai ulang, sehingga saat sistemnya dibangun nanti (toko kapal, umpan, joran) isinya cukup ditambahkan tanpa membongkar ulang.
 
 ## Catatan teknis
-- Tabel baru: `shop_items`, `player_inventory` (alat/umpan), `quests`, `player_quests`, `achievements`, `player_achievements`, `species_records`. Semua di Lovable Cloud dengan RLS + GRANT.
-- Semua perubahan koin/XP lewat fungsi database bertanda `security definer` seperti `record_catch` dan `sell_fish` agar tidak bisa dicurangi dari sisi klien.
-- Papan peringkat memakai view baca-publik agar aman ditampilkan tanpa membocorkan data profil lain.
-- UI baru memakai gaya panel HUD yang sudah ada.
 
-Saya sarankan mulai dari sistem 1 dan 2 dulu karena keduanya langsung memberi tujuan bermain jangka panjang.
+- `Merchant.tsx` dipecah menjadi `NpcCharacter.tsx` (badan blocky + wajah dari canvas texture, semua warna & ekspresi lewat props) dan definisi NPC di `npcs.ts` (id, nama, posisi, jarak bicara, palet pakaian, jenis topi, ekspresi, dialog).
+- `useMerchant` diperluas jadi store NPC: menyimpan `nearId` dan `openId`, satu handler tombol E untuk semua NPC. Kode pedagang ikan tetap jalan.
+- `MerchantDialog` dijadikan panel generik `NpcDialog` yang membaca `openId`; tab jual ikan hanya untuk pedagang ikan.
+- Tidak ada perubahan database di tahap ini.
+
+## Setelah ini (urutan pembangunan sistem)
+
+1. Toko joran & umpan (peningkatan alat, koin akhirnya berguna)
+2. Toko kapal
+3. Misi harian & pencapaian
+4. Papan peringkat
+5. Buku koleksi ikan
+6. Perlawanan ikan monster
