@@ -31,7 +31,29 @@ export interface Collider {
   box: THREE.Box3;
   /** flattened list of meshes, so we skip a traverse on every query */
   meshes: THREE.Mesh[];
+  /**
+   * Per-mesh world boxes used for solid collision. A single root box turns a
+   * shop (roof + eaves included) into an impassable slab, so we block against
+   * the individual parts and let the player walk into open fronts.
+   */
+  parts: THREE.Box3[];
 }
+
+/** Above this many parts we fall back to the cheap root box. */
+const MAX_SOLID_PARTS = 400;
+
+function buildParts(obj: THREE.Object3D, meshes: THREE.Mesh[], root: THREE.Box3): THREE.Box3[] {
+  if (meshes.length === 0 || meshes.length > MAX_SOLID_PARTS) return [root];
+  obj.updateWorldMatrix(true, true);
+  const parts: THREE.Box3[] = [];
+  for (const m of meshes) {
+    const b = new THREE.Box3().setFromObject(m);
+    if (b.isEmpty()) continue;
+    parts.push(b);
+  }
+  return parts.length ? parts : [root];
+}
+
 
 const colliders = new Map<string, Collider>();
 
@@ -194,4 +216,16 @@ export function pushOutOfSolids(x: number, z: number, radius = 0.9): [number, nu
     else pz = maxZ;
   }
   return [px, pz];
+}
+
+// Dev aid: inspect the live solid boxes from the console.
+if (typeof window !== "undefined") {
+  (window as unknown as { __solids?: () => unknown[] }).__solids = () =>
+    [...colliders.values()]
+      .filter((c) => c.solid)
+      .map((c) => ({
+        id: c.id,
+        min: [+c.box.min.x.toFixed(1), +c.box.min.y.toFixed(1), +c.box.min.z.toFixed(1)],
+        max: [+c.box.max.x.toFixed(1), +c.box.max.y.toFixed(1), +c.box.max.z.toFixed(1)],
+      }));
 }
