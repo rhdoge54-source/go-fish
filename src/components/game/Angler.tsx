@@ -143,11 +143,11 @@ export function Angler() {
     const st = s.current;
     const store = useGameStore.getState();
     if (store.rodStowed) {
-      // joran sedang tersampir di punggung: ambil dulu sebelum bisa melempar
-      store.setRodStowed(false);
-      setMessage("Rod ready. Press ENTER / left click to cast.");
+      // joran tersampir di punggung: harus di-klik dulu di hotbar slot 1
+      setMessage("Your rod is on your back — click slot 1 (or press 1) to equip it.");
       return;
     }
+
     if (st.phase === "idle") {
       // Casting is locked to the avatar's visible forward axis, never the
       // orbit camera. Preserve the current visible yaw so starting a cast
