@@ -63,7 +63,7 @@ export const NPCS: NpcDef[] = [
     name: "Pip",
     role: "Bait Merchant",
     place: "Bait shop, west shore",
-    pos: [-13.9, 6.51],
+    pos: [-13.9, 5.5],
     talkDist: 5.5,
     face: "squint",
     trades: false,
