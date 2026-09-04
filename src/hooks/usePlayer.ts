@@ -72,5 +72,10 @@ export function clampToWalkable(x: number, z: number): [number, number] {
 
 // Dev aid: expose the live player state for quick inspection in the console.
 if (typeof window !== "undefined") {
-  (window as unknown as { __player?: typeof player }).__player = player;
+  const w = window as unknown as {
+    __player?: typeof player;
+    __groundHeight?: (x: number, z: number) => number | null;
+  };
+  w.__player = player;
+  w.__groundHeight = (x, z) => groundAround(x, z, PLAYER_FOOT_RADIUS);
 }

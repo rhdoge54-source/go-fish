@@ -2,22 +2,26 @@ import { useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
-import { player, groundHeight } from "@/hooks/usePlayer";
+import { player } from "@/hooks/usePlayer";
+import { groundAround } from "@/lib/worldPhysics";
 import { useNpc } from "@/hooks/useNpc";
 import { NPCS, type NpcDef } from "./npcs";
 import { NpcCharacter } from "./NpcCharacter";
 
 const NPC_SCALE = 2.5;
-const NPC_LIFT = 0.18;
+const NPC_LIFT = 0.05;
+/** how often (frames) we re-sample the terrain under an NPC */
+const RESAMPLE_EVERY = 20;
 
 function Npc({ def }: { def: NpcDef }) {
   const group = useRef<THREE.Group>(null);
   const [prompt, setPrompt] = useState(false);
   const openId = useNpc((s) => s.openId);
   const [x, z] = def.pos;
-  // Island colliders stream in after mount, so keep re-sampling for a while.
-  const y = useRef(groundHeight(x, z) + NPC_LIFT);
-  const settle = useRef(0);
+  // Island colliders stream in after mount, so keep re-sampling until the
+  // terrain under the NPC actually exists (otherwise they sink to sea level).
+  const y = useRef<number | null>(null);
+  const tick = useRef(0);
 
   useFrame((state) => {
     const near = Math.hypot(player.pos.x - x, player.pos.z - z) < def.talkDist;
@@ -26,16 +30,23 @@ function Npc({ def }: { def: NpcDef }) {
 
     const g = group.current;
     if (!g) return;
-    if (settle.current < 300) {
-      settle.current += 1;
-      y.current = groundHeight(x, z) + NPC_LIFT;
+    tick.current += 1;
+    if (tick.current % RESAMPLE_EVERY === 0 || y.current === null) {
+      const ground = groundAround(x, z, 0.6);
+      if (ground !== null) y.current = ground + NPC_LIFT;
     }
+    if (y.current === null) {
+      g.visible = false;
+      return;
+    }
+    g.visible = true;
     g.position.y = y.current + Math.sin(state.clock.elapsedTime * 1.6) * 0.03;
     if (near) g.rotation.y = Math.atan2(player.pos.x - x, player.pos.z - z);
   });
 
   return (
-    <group ref={group} position={[x, y.current, z]} scale={NPC_SCALE}>
+    <group ref={group} position={[x, y.current ?? 0, z]} scale={NPC_SCALE} visible={false}>
+
       <NpcCharacter face={def.face} outfit={def.outfit} />
       {prompt && openId !== def.id && (
         <Html position={[0, 2.2, 0]} center distanceFactor={12} zIndexRange={[10, 0]}>
