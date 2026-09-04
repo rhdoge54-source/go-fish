@@ -66,8 +66,8 @@ export function resolvePlayerGround(
 }
 
 /** Free roaming; only objects marked "solid" in the editor block the player. */
-export function clampToWalkable(x: number, z: number): [number, number] {
-  return pushOutOfSolids(x, z, 0.9);
+export function clampToWalkable(x: number, z: number, y?: number): [number, number] {
+  return pushOutOfSolids(x, z, 0.9, y ?? player.pos.y);
 }
 
 // Dev aid: expose the live player state for quick inspection in the console.
