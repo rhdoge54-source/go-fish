@@ -23,8 +23,8 @@ import { player } from "@/hooks/usePlayer";
 import { resumeWeatherAudio } from "@/lib/weatherAudio";
 import { WalletButton } from "../wallet/WalletButton";
 import { ProfilePanel } from "../profile/ProfilePanel";
-import { Merchant } from "./Merchant";
-import { MerchantDialog } from "./MerchantDialog";
+import { Npcs } from "./Npcs";
+import { NpcDialog } from "./NpcDialog";
 
 /** Keeps the orbit pivot glued to the character so the camera follows them. */
 function FollowTarget({
@@ -139,7 +139,7 @@ export function GameCanvas() {
           }}
         />
         <FollowTarget controls={controls} />
-        <Merchant />
+        <Npcs />
 
         <EffectComposer multisampling={4}>
           <Bloom
@@ -160,7 +160,7 @@ export function GameCanvas() {
         <WalletButton />
       </div>
       <ProfilePanel />
-      <MerchantDialog />
+      <NpcDialog />
     </div>
   );
 }
