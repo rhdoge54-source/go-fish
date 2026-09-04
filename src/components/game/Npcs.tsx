@@ -44,9 +44,9 @@ function Npc({ def }: { def: NpcDef }) {
     if (near) g.rotation.y = Math.atan2(player.pos.x - x, player.pos.z - z);
   });
 
-
   return (
-    <group ref={group} position={[x, y.current, z]} scale={NPC_SCALE}>
+    <group ref={group} position={[x, y.current ?? 0, z]} scale={NPC_SCALE} visible={false}>
+
       <NpcCharacter face={def.face} outfit={def.outfit} />
       {prompt && openId !== def.id && (
         <Html position={[0, 2.2, 0]} center distanceFactor={12} zIndexRange={[10, 0]}>
