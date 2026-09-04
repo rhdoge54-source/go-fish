@@ -932,11 +932,38 @@ export function Angler() {
               <cylinderGeometry args={[0.62, 0.72, 0.42, 12]} />
               <meshStandardMaterial color="#d8b25c" roughness={0.9} />
             </mesh>
-            <mesh position={[0, 0.53, 0]} castShadow>
-              <cylinderGeometry args={[1.05, 1.05, 0.08, 14]} />
-              <meshStandardMaterial color="#c9a24d" roughness={0.9} />
+            {/* silver spiky hair */}
+            <mesh position={[0, 0.66, 0]} castShadow>
+              <boxGeometry args={[1.34, 0.42, 1.34]} />
+              <meshStandardMaterial color={hair} roughness={0.6} />
+            </mesh>
+            <mesh position={[0, 0.2, -0.68]} castShadow>
+              <boxGeometry args={[1.34, 1.1, 0.14]} />
+              <meshStandardMaterial color={hair} roughness={0.6} />
+            </mesh>
+            {[-0.42, -0.14, 0.14, 0.42].map((x, i) => (
+              <mesh key={x} position={[x, 0.92 + (i % 2) * 0.1, 0.12 - (i % 2) * 0.2]} rotation={[0.2, 0, x * 0.4]} castShadow>
+                <boxGeometry args={[0.24, 0.36, 0.3]} />
+                <meshStandardMaterial color={hair} roughness={0.6} />
+              </mesh>
+            ))}
+            <mesh position={[0, 0.5, 0.6]} rotation={[0.18, 0, 0]} castShadow>
+              <boxGeometry args={[1.3, 0.34, 0.28]} />
+              <meshStandardMaterial color={hair} roughness={0.6} />
+            </mesh>
+            {/* headphones */}
+            {[-0.74, 0.74].map((x) => (
+              <mesh key={x} position={[x, 0.05, 0]} castShadow>
+                <boxGeometry args={[0.22, 0.62, 0.62]} />
+                <meshStandardMaterial color="#e8eaed" roughness={0.5} />
+              </mesh>
+            ))}
+            <mesh position={[0, 0.74, 0]} castShadow>
+              <torusGeometry args={[0.74, 0.07, 8, 16, Math.PI]} />
+              <meshStandardMaterial color="#e8eaed" roughness={0.5} />
             </mesh>
           </group>
+
 
           {/* left arm (character's left = +X side) */}
           <group ref={leftArm} position={[1.5, 3.5, 0]}>
