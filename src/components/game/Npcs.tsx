@@ -48,16 +48,27 @@ function Npc({ def }: { def: NpcDef }) {
     <group ref={group} position={[x, y.current ?? 0, z]} scale={NPC_SCALE} visible={false}>
 
       <NpcCharacter face={def.face} outfit={def.outfit} />
+
+      <Html position={[0, 2.5, 0]} center distanceFactor={12} zIndexRange={[10, 0]}>
+        <div
+          className="pointer-events-none whitespace-nowrap text-[18px] font-extrabold text-white"
+          style={{ textShadow: "0 2px 0 rgba(0,0,0,.55), 0 0 6px rgba(0,0,0,.45)" }}
+        >
+          {def.name}
+        </div>
+      </Html>
+
       {prompt && openId !== def.id && (
-        <Html position={[0, 2.2, 0]} center distanceFactor={12} zIndexRange={[10, 0]}>
-          <div className="pointer-events-none whitespace-nowrap rounded-full border border-white/30 bg-slate-900/70 px-3 py-1 text-center text-[13px] font-semibold text-slate-50 shadow-lg backdrop-blur-sm">
-            <span className="block text-[11px] font-medium text-slate-300">
-              {def.name} · {def.role}
+        <Html position={[0, 1.35, 0]} center distanceFactor={12} zIndexRange={[10, 0]}>
+          <div className="pointer-events-none flex items-center gap-2 whitespace-nowrap rounded-xl bg-white/95 px-2 py-1.5 shadow-lg">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-800 text-[13px] font-bold text-white">
+              E
             </span>
-            Press E to talk
+            <span className="pr-1 text-[15px] font-bold text-neutral-800">Talk</span>
           </div>
         </Html>
       )}
+
     </group>
   );
 }
