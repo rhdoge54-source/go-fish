@@ -41,10 +41,107 @@ export interface Collider {
 
 /** Above this many parts we fall back to the cheap root box. */
 const MAX_SOLID_PARTS = 400;
+/** Geometry-occupancy grid: cell size (m) and triangle budget. */
+const CELL = 0.7;
+const MAX_TRIS = 120_000;
+/** Vertical gap that separates two solid spans in the same cell. */
+const SPAN_GAP = 0.6;
+
+/**
+ * Build solid boxes from the actual triangles of a mesh instead of its bounding
+ * box. Baked shop models are usually ONE merged mesh, so a per-mesh box turns
+ * the whole building (roof overhang, open porch, front steps) into a solid
+ * slab and the player is stopped a metre away from the door. Here we bin the
+ * triangles onto a coarse XZ grid and keep, per cell, the vertical spans that
+ * actually contain geometry — so floors, roofs and empty porch space no longer
+ * block, only walls and posts do.
+ */
+function gridParts(meshes: THREE.Mesh[]): THREE.Box3[] | null {
+  let tris = 0;
+  for (const m of meshes) {
+    const g = m.geometry as THREE.BufferGeometry;
+    const pos = g.getAttribute("position");
+    if (!pos) return null;
+    tris += (g.index ? g.index.count : pos.count) / 3;
+    if (tris > MAX_TRIS) return null;
+  }
+  const cells = new Map<string, Array<[number, number]>>();
+  const v = new THREE.Vector3();
+  for (const m of meshes) {
+    const g = m.geometry as THREE.BufferGeometry;
+    const pos = g.getAttribute("position");
+    const idx = g.index;
+    const count = idx ? idx.count : pos.count;
+    m.updateWorldMatrix(true, false);
+    for (let i = 0; i < count; i += 3) {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minZ = Infinity;
+      let maxZ = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (let k = 0; k < 3; k++) {
+        const vi = idx ? idx.getX(i + k) : i + k;
+        v.fromBufferAttribute(pos as THREE.BufferAttribute, vi).applyMatrix4(m.matrixWorld);
+        if (v.x < minX) minX = v.x;
+        if (v.x > maxX) maxX = v.x;
+        if (v.z < minZ) minZ = v.z;
+        if (v.z > maxZ) maxZ = v.z;
+        if (v.y < minY) minY = v.y;
+        if (v.y > maxY) maxY = v.y;
+      }
+      const cx0 = Math.floor(minX / CELL);
+      const cx1 = Math.floor(maxX / CELL);
+      const cz0 = Math.floor(minZ / CELL);
+      const cz1 = Math.floor(maxZ / CELL);
+      for (let cx = cx0; cx <= cx1; cx++) {
+        for (let cz = cz0; cz <= cz1; cz++) {
+          const key = `${cx}|${cz}`;
+          let spans = cells.get(key);
+          if (!spans) cells.set(key, (spans = []));
+          spans.push([minY, maxY]);
+        }
+      }
+    }
+  }
+  const parts: THREE.Box3[] = [];
+  for (const [key, spans] of cells) {
+    const [cxs, czs] = key.split("|");
+    const cx = Number(cxs);
+    const cz = Number(czs);
+    spans.sort((a, b) => a[0] - b[0]);
+    let lo = spans[0]![0];
+    let hi = spans[0]![1];
+    const push = () => {
+      parts.push(
+        new THREE.Box3(
+          new THREE.Vector3(cx * CELL, lo, cz * CELL),
+          new THREE.Vector3((cx + 1) * CELL, hi, (cz + 1) * CELL),
+        ),
+      );
+    };
+    for (let i = 1; i < spans.length; i++) {
+      const s = spans[i]!;
+      if (s[0] <= hi + SPAN_GAP) {
+        if (s[1] > hi) hi = s[1];
+      } else {
+        push();
+        lo = s[0];
+        hi = s[1];
+      }
+    }
+    push();
+    if (parts.length > 6000) return null;
+  }
+  return parts.length ? parts : null;
+}
 
 function buildParts(obj: THREE.Object3D, meshes: THREE.Mesh[], root: THREE.Box3): THREE.Box3[] {
-  if (meshes.length === 0 || meshes.length > MAX_SOLID_PARTS) return [root];
+  if (meshes.length === 0) return [root];
   obj.updateWorldMatrix(true, true);
+  const grid = gridParts(meshes);
+  if (grid) return grid;
+  if (meshes.length > MAX_SOLID_PARTS) return [root];
   const parts: THREE.Box3[] = [];
   for (const m of meshes) {
     const b = new THREE.Box3().setFromObject(m);
@@ -53,6 +150,7 @@ function buildParts(obj: THREE.Object3D, meshes: THREE.Mesh[], root: THREE.Box3)
   }
   return parts.length ? parts : [root];
 }
+
 
 
 const colliders = new Map<string, Collider>();
