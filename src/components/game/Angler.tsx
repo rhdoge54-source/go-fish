@@ -927,11 +927,6 @@ export function Angler() {
               <boxGeometry args={[0.5, 0.1, 0.04]} />
               <meshStandardMaterial color="#1a1d22" />
             </mesh>
-            {/* bucket hat */}
-            <mesh position={[0, 0.72, 0]} castShadow>
-              <cylinderGeometry args={[0.62, 0.72, 0.42, 12]} />
-              <meshStandardMaterial color="#d8b25c" roughness={0.9} />
-            </mesh>
             {/* silver spiky hair */}
             <mesh position={[0, 0.66, 0]} castShadow>
               <boxGeometry args={[1.34, 0.42, 1.34]} />
