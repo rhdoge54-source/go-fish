@@ -37,6 +37,9 @@ export interface Collider {
    * the individual parts and let the player walk into open fronts.
    */
   parts: THREE.Box3[];
+  /** Same boxes keyed by XZ cell, when built from the occupancy grid. */
+  grid: Map<string, THREE.Box3[]> | null;
+
 }
 
 /** Above this many parts we fall back to the cheap root box. */
