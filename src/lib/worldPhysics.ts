@@ -236,12 +236,35 @@ export function pushOutOfSolids(
 
 // Dev aid: inspect the live solid boxes from the console.
 if (typeof window !== "undefined") {
-  (window as unknown as { __solids?: () => unknown[] }).__solids = () =>
+  const w = window as unknown as {
+    __solids?: () => unknown[];
+    __solidPartsAt?: (x: number, z: number, r?: number) => unknown[];
+  };
+  w.__solids = () =>
     [...colliders.values()]
       .filter((c) => c.solid)
       .map((c) => ({
         id: c.id,
+        parts: c.parts.length,
+        meshes: c.meshes.length,
         min: [+c.box.min.x.toFixed(1), +c.box.min.y.toFixed(1), +c.box.min.z.toFixed(1)],
         max: [+c.box.max.x.toFixed(1), +c.box.max.y.toFixed(1), +c.box.max.z.toFixed(1)],
       }));
+  w.__solidPartsAt = (x, z, r = 1.5) => {
+    const out: unknown[] = [];
+    for (const c of colliders.values()) {
+      if (!c.solid) continue;
+      c.parts.forEach((b, i) => {
+        if (x < b.min.x - r || x > b.max.x + r) return;
+        if (z < b.min.z - r || z > b.max.z + r) return;
+        out.push({
+          id: `${c.id}#${i}`,
+          min: [+b.min.x.toFixed(2), +b.min.y.toFixed(2), +b.min.z.toFixed(2)],
+          max: [+b.max.x.toFixed(2), +b.max.y.toFixed(2), +b.max.z.toFixed(2)],
+        });
+      });
+    }
+    return out;
+  };
 }
+
