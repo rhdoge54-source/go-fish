@@ -90,7 +90,7 @@ export const NPCS: NpcDef[] = [
     name: "Old Bram",
     role: "Rod Shop Keeper",
     place: "Teal rod shop, far west",
-    pos: [-41.2, -7.2],
+    pos: [-41.2, -6.2],
     talkDist: 5.5,
     face: "stern",
     trades: false,
