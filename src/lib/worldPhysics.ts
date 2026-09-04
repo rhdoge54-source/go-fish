@@ -37,22 +37,133 @@ export interface Collider {
    * the individual parts and let the player walk into open fronts.
    */
   parts: THREE.Box3[];
+  /** Same boxes keyed by XZ cell, when built from the occupancy grid. */
+  grid: Map<string, THREE.Box3[]> | null;
+
 }
 
 /** Above this many parts we fall back to the cheap root box. */
 const MAX_SOLID_PARTS = 400;
+/** Geometry-occupancy grid: cell size (m) and triangle budget. */
+const CELL = 0.7;
+const MAX_TRIS = 900_000;
+/** Vertical gap that separates two solid spans in the same cell. */
+const SPAN_GAP = 0.6;
 
-function buildParts(obj: THREE.Object3D, meshes: THREE.Mesh[], root: THREE.Box3): THREE.Box3[] {
-  if (meshes.length === 0 || meshes.length > MAX_SOLID_PARTS) return [root];
+const cellKey = (cx: number, cz: number) => `${cx}|${cz}`;
+
+/**
+ * Build solid boxes from the actual triangles of a mesh instead of its bounding
+ * box. Baked shop models are usually ONE merged mesh, so a per-mesh box turns
+ * the whole building (roof overhang, open porch, front steps) into a solid
+ * slab and the player is stopped a metre away from the door. Here we bin the
+ * triangles onto a coarse XZ grid and keep, per cell, the vertical spans that
+ * actually contain geometry — so floors, roofs and empty porch space no longer
+ * block, only walls and posts do. The result stays keyed by cell so a collision
+ * query only inspects the handful of cells around the player.
+ */
+function gridParts(meshes: THREE.Mesh[]): Map<string, THREE.Box3[]> | null {
+  let tris = 0;
+  for (const m of meshes) {
+    const g = m.geometry as THREE.BufferGeometry;
+    const pos = g.getAttribute("position");
+    if (!pos) return null;
+    tris += (g.index ? g.index.count : pos.count) / 3;
+    if (tris > MAX_TRIS) return null;
+  }
+  const cells = new Map<string, Array<[number, number]>>();
+  const v = new THREE.Vector3();
+  for (const m of meshes) {
+    const g = m.geometry as THREE.BufferGeometry;
+    const pos = g.getAttribute("position") as THREE.BufferAttribute;
+    const idx = g.index;
+    const count = idx ? idx.count : pos.count;
+    m.updateWorldMatrix(true, false);
+    for (let i = 0; i + 2 < count; i += 3) {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minZ = Infinity;
+      let maxZ = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (let k = 0; k < 3; k++) {
+        const vi = idx ? idx.getX(i + k) : i + k;
+        v.fromBufferAttribute(pos, vi).applyMatrix4(m.matrixWorld);
+        if (v.x < minX) minX = v.x;
+        if (v.x > maxX) maxX = v.x;
+        if (v.z < minZ) minZ = v.z;
+        if (v.z > maxZ) maxZ = v.z;
+        if (v.y < minY) minY = v.y;
+        if (v.y > maxY) maxY = v.y;
+      }
+      const cx0 = Math.floor(minX / CELL);
+      const cx1 = Math.floor(maxX / CELL);
+      const cz0 = Math.floor(minZ / CELL);
+      const cz1 = Math.floor(maxZ / CELL);
+      for (let cx = cx0; cx <= cx1; cx++) {
+        for (let cz = cz0; cz <= cz1; cz++) {
+          const key = cellKey(cx, cz);
+          let spans = cells.get(key);
+          if (!spans) cells.set(key, (spans = []));
+          spans.push([minY, maxY]);
+        }
+      }
+    }
+  }
+  if (cells.size === 0) return null;
+  const grid = new Map<string, THREE.Box3[]>();
+  for (const [key, spans] of cells) {
+    const [cxs, czs] = key.split("|");
+    const cx = Number(cxs);
+    const cz = Number(czs);
+    spans.sort((a, b) => a[0] - b[0]);
+    const boxes: THREE.Box3[] = [];
+    let lo = spans[0]![0];
+    let hi = spans[0]![1];
+    const push = () => {
+      boxes.push(
+        new THREE.Box3(
+          new THREE.Vector3(cx * CELL, lo, cz * CELL),
+          new THREE.Vector3((cx + 1) * CELL, hi, (cz + 1) * CELL),
+        ),
+      );
+    };
+    for (let i = 1; i < spans.length; i++) {
+      const s = spans[i]!;
+      if (s[0] <= hi + SPAN_GAP) {
+        if (s[1] > hi) hi = s[1];
+      } else {
+        push();
+        lo = s[0];
+        hi = s[1];
+      }
+    }
+    push();
+    grid.set(key, boxes);
+  }
+  return grid;
+}
+
+function buildParts(
+  obj: THREE.Object3D,
+  meshes: THREE.Mesh[],
+  root: THREE.Box3,
+): { parts: THREE.Box3[]; grid: Map<string, THREE.Box3[]> | null } {
+  if (meshes.length === 0) return { parts: [root], grid: null };
   obj.updateWorldMatrix(true, true);
+  const grid = gridParts(meshes);
+  if (grid) return { parts: [...grid.values()].flat(), grid };
+  if (meshes.length > MAX_SOLID_PARTS) return { parts: [root], grid: null };
   const parts: THREE.Box3[] = [];
   for (const m of meshes) {
     const b = new THREE.Box3().setFromObject(m);
     if (b.isEmpty()) continue;
     parts.push(b);
   }
-  return parts.length ? parts : [root];
+  return { parts: parts.length ? parts : [root], grid: null };
 }
+
+
 
 
 const colliders = new Map<string, Collider>();
@@ -97,6 +208,9 @@ export function registerCollider(
   obj.updateWorldMatrix(true, true);
   const meshes = collectMeshes(obj, walkable);
   const rootBox = new THREE.Box3().setFromObject(obj);
+  const built = solid
+    ? buildParts(obj, meshes, rootBox)
+    : { parts: [rootBox], grid: null };
   colliders.set(id, {
     id,
     obj,
@@ -104,7 +218,8 @@ export function registerCollider(
     solid,
     box: rootBox,
     meshes,
-    parts: buildParts(obj, meshes, rootBox),
+    parts: built.parts,
+    grid: built.grid,
   });
   invalidate();
 }
@@ -114,22 +229,32 @@ export function unregisterCollider(id: string) {
   invalidate();
 }
 
+function rebuild(c: Collider) {
+  c.obj.updateWorldMatrix(true, true);
+  c.box.setFromObject(c.obj);
+  if (!c.solid) {
+    c.parts = [c.box];
+    c.grid = null;
+    return;
+  }
+  const built = buildParts(c.obj, c.meshes, c.box);
+  c.parts = built.parts;
+  c.grid = built.grid;
+}
+
 /** Recompute the cached bounding boxes after a transform change. */
 export function refreshCollider(id: string) {
   const c = colliders.get(id);
   if (!c) return;
-  c.obj.updateWorldMatrix(true, true);
-  c.box.setFromObject(c.obj);
-  c.parts = buildParts(c.obj, c.meshes, c.box);
+  rebuild(c);
   invalidate();
 }
 
 export function refreshAllColliders() {
   for (const c of colliders.values()) {
-    c.obj.updateWorldMatrix(true, true);
-    c.box.setFromObject(c.obj);
-    c.parts = buildParts(c.obj, c.meshes, c.box);
+    rebuild(c);
   }
+
   invalidate();
 }
 
@@ -198,8 +323,8 @@ export function isOverLand(x: number, z: number, minY = -0.2): boolean {
 
 /**
  * Push (x, z) out of every solid object's XZ bounding box, along the axis with
- * the smallest penetration. Uses per-mesh boxes so a shop's roof/awning does
- * not block the open area in front of it.
+ * the smallest penetration. Boxes come from the geometry-occupancy grid, so a
+ * shop's roof, porch floor and steps stay passable — only walls block.
  */
 export function pushOutOfSolids(
   x: number,
@@ -209,17 +334,25 @@ export function pushOutOfSolids(
 ): [number, number] {
   let px = x;
   let pz = z;
+  // Fine grid boxes hug the real walls, so they only need a slim skin; a fat
+  // radius would seal doorways and porch gaps again.
+  const pad = Math.min(radius, 0.3);
   for (const c of colliders.values()) {
     if (!c.solid) continue;
+    const fine = c.parts.length > 4;
+    const r = fine ? pad : radius;
     for (const box of c.parts) {
       // Skip parts above the player's head — awnings and roofs should not
       // block the entrance below them.
       if (playerY > 0 && box.min.y > playerY + 1.6) continue;
-      const minX = box.min.x - radius;
-      const maxX = box.max.x + radius;
-      const minZ = box.min.z - radius;
-      const maxZ = box.max.z + radius;
+      // Skip floors, decks and low steps the player simply walks onto.
+      if (fine && playerY > 0 && box.max.y < playerY + 0.5) continue;
+      const minX = box.min.x - r;
+      const maxX = box.max.x + r;
+      const minZ = box.min.z - r;
+      const maxZ = box.max.z + r;
       if (px <= minX || px >= maxX || pz <= minZ || pz >= maxZ) continue;
+
       const left = px - minX;
       const right = maxX - px;
       const back = pz - minZ;
@@ -236,12 +369,35 @@ export function pushOutOfSolids(
 
 // Dev aid: inspect the live solid boxes from the console.
 if (typeof window !== "undefined") {
-  (window as unknown as { __solids?: () => unknown[] }).__solids = () =>
+  const w = window as unknown as {
+    __solids?: () => unknown[];
+    __solidPartsAt?: (x: number, z: number, r?: number) => unknown[];
+  };
+  w.__solids = () =>
     [...colliders.values()]
       .filter((c) => c.solid)
       .map((c) => ({
         id: c.id,
+        parts: c.parts.length,
+        meshes: c.meshes.length,
         min: [+c.box.min.x.toFixed(1), +c.box.min.y.toFixed(1), +c.box.min.z.toFixed(1)],
         max: [+c.box.max.x.toFixed(1), +c.box.max.y.toFixed(1), +c.box.max.z.toFixed(1)],
       }));
+  w.__solidPartsAt = (x, z, r = 1.5) => {
+    const out: unknown[] = [];
+    for (const c of colliders.values()) {
+      if (!c.solid) continue;
+      c.parts.forEach((b, i) => {
+        if (x < b.min.x - r || x > b.max.x + r) return;
+        if (z < b.min.z - r || z > b.max.z + r) return;
+        out.push({
+          id: `${c.id}#${i}`,
+          min: [+b.min.x.toFixed(2), +b.min.y.toFixed(2), +b.min.z.toFixed(2)],
+          max: [+b.max.x.toFixed(2), +b.max.y.toFixed(2), +b.max.z.toFixed(2)],
+        });
+      });
+    }
+    return out;
+  };
 }
+
