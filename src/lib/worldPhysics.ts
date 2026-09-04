@@ -208,6 +208,9 @@ export function registerCollider(
   obj.updateWorldMatrix(true, true);
   const meshes = collectMeshes(obj, walkable);
   const rootBox = new THREE.Box3().setFromObject(obj);
+  const built = solid
+    ? buildParts(obj, meshes, rootBox)
+    : { parts: [rootBox], grid: null };
   colliders.set(id, {
     id,
     obj,
@@ -215,7 +218,8 @@ export function registerCollider(
     solid,
     box: rootBox,
     meshes,
-    parts: buildParts(obj, meshes, rootBox),
+    parts: built.parts,
+    grid: built.grid,
   });
   invalidate();
 }
@@ -225,22 +229,32 @@ export function unregisterCollider(id: string) {
   invalidate();
 }
 
+function rebuild(c: Collider) {
+  c.obj.updateWorldMatrix(true, true);
+  c.box.setFromObject(c.obj);
+  if (!c.solid) {
+    c.parts = [c.box];
+    c.grid = null;
+    return;
+  }
+  const built = buildParts(c.obj, c.meshes, c.box);
+  c.parts = built.parts;
+  c.grid = built.grid;
+}
+
 /** Recompute the cached bounding boxes after a transform change. */
 export function refreshCollider(id: string) {
   const c = colliders.get(id);
   if (!c) return;
-  c.obj.updateWorldMatrix(true, true);
-  c.box.setFromObject(c.obj);
-  c.parts = buildParts(c.obj, c.meshes, c.box);
+  rebuild(c);
   invalidate();
 }
 
 export function refreshAllColliders() {
   for (const c of colliders.values()) {
-    c.obj.updateWorldMatrix(true, true);
-    c.box.setFromObject(c.obj);
-    c.parts = buildParts(c.obj, c.meshes, c.box);
+    rebuild(c);
   }
+
   invalidate();
 }
 
