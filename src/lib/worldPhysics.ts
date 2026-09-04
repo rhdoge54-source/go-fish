@@ -296,8 +296,8 @@ export function isOverLand(x: number, z: number, minY = -0.2): boolean {
 
 /**
  * Push (x, z) out of every solid object's XZ bounding box, along the axis with
- * the smallest penetration. Uses per-mesh boxes so a shop's roof/awning does
- * not block the open area in front of it.
+ * the smallest penetration. Boxes come from the geometry-occupancy grid, so a
+ * shop's roof, porch floor and steps stay passable — only walls block.
  */
 export function pushOutOfSolids(
   x: number,
@@ -307,17 +307,25 @@ export function pushOutOfSolids(
 ): [number, number] {
   let px = x;
   let pz = z;
+  // Fine grid boxes hug the real walls, so they only need a slim skin; a fat
+  // radius would seal doorways and porch gaps again.
+  const pad = Math.min(radius, 0.3);
   for (const c of colliders.values()) {
     if (!c.solid) continue;
+    const fine = c.parts.length > 4;
+    const r = fine ? pad : radius;
     for (const box of c.parts) {
       // Skip parts above the player's head — awnings and roofs should not
       // block the entrance below them.
       if (playerY > 0 && box.min.y > playerY + 1.6) continue;
-      const minX = box.min.x - radius;
-      const maxX = box.max.x + radius;
-      const minZ = box.min.z - radius;
-      const maxZ = box.max.z + radius;
+      // Skip floors, decks and low steps the player simply walks onto.
+      if (fine && playerY > 0 && box.max.y < playerY + 0.5) continue;
+      const minX = box.min.x - r;
+      const maxX = box.max.x + r;
+      const minZ = box.min.z - r;
+      const maxZ = box.max.z + r;
       if (px <= minX || px >= maxX || pz <= minZ || pz >= maxZ) continue;
+
       const left = px - minX;
       const right = maxX - px;
       const back = pz - minZ;
